@@ -4,7 +4,7 @@ import { buildDecorationGuide, INTERIOR_DESIGN_RENDER_SKILL, RENDER_EDIT_PRESERV
 describe("design skills", () => {
   it("keeps render guidance available locally without a provider call", () => {
     expect(INTERIOR_DESIGN_RENDER_SKILL).toContain("estilo");
-    expect(TECHNICAL_CABINETRY_SKILL).toContain("medidas");
+    expect(TECHNICAL_CABINETRY_SKILL).toContain("dimensions");
     expect(RENDER_EDIT_PRESERVATION_SKILL).toContain("change only");
   });
 
