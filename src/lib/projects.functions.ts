@@ -112,3 +112,100 @@ export const renderProject = createServerFn({ method: "POST" })
       return { ok: false as const, error: msg };
     }
   });
+
+
+const editRenderSchema = z.object({
+  id: z.string().uuid(),
+  instruction: z.string().trim().min(3, "Descreva a alteração desejada.").max(1500, "A instrução deve ter até 1500 caracteres."),
+});
+
+/** Edita o render atual sem alterar a foto original; cada resultado vira uma nova versão no Storage. */
+export const editRender = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => editRenderSchema.parse(d))
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    const { runRender, RENDER_MODEL } = await import("./ai.server");
+    try {
+      const { data: p, error: projectError } = await supabase
+        .from("projects")
+        .select("id, render_path, analysis")
+        .eq("id", data.id)
+        .single();
+      if (projectError || !p) throw new Error("Projeto não encontrado.");
+      if (!p.render_path) throw new Error("Gere um render antes de editar.");
+      if (!p.render_path.startsWith(`${userId}/${data.id}/`)) throw new Error("O render não pertence a este projeto.");
+
+      const { data: blob, error: downloadError } = await supabase.storage.from("ambientes").download(p.render_path);
+      if (downloadError || !blob) throw new Error("Não foi possível abrir o render atual.");
+      const bytes = new Uint8Array(await blob.arrayBuffer());
+      const mime = sniffImageType(bytes);
+      if (!mime) throw new Error("O arquivo do render não é uma imagem válida.");
+      const extension = mime === "image/png" ? "png" : mime === "image/webp" ? "webp" : "jpg";
+      const file = new File([bytes], `render-atual.${extension}`, { type: mime });
+      const prompt = [
+        "Make a localized edit to THIS existing interior-design render, not a new unrelated design.",
+        "STRICT PRESERVATION: keep the same camera angle, perspective, room geometry, architecture, walls, doors, windows, floor, ceiling, lighting, shadows, composition, and every furniture/detail not explicitly mentioned by the user.",
+        "Change only what the user explicitly requests. Keep the existing proportions and layout. Do not add text, dimensions, labels, watermarks, or unrelated objects.",
+        `User's requested edit: ${data.instruction}`,
+      ].join("\\n").slice(0, 3800);
+      const output = await runRender(file, prompt);
+      const nextPath = `${userId}/${data.id}/edit-${Date.now()}.png`;
+      const { error: uploadError } = await supabase.storage.from("ambientes").upload(nextPath, output, {
+        contentType: "image/png",
+        upsert: false,
+      });
+      if (uploadError) throw new Error(`Falha ao salvar a nova versão: ${uploadError.message}`);
+
+      const priorAnalysis = (p.analysis && typeof p.analysis === "object" ? p.analysis : {}) as Record<string, unknown>;
+      const history = Array.isArray(priorAnalysis.render_history)
+        ? (priorAnalysis.render_history as Array<{ path: string; created_at: string; instruction: string }>)
+        : [];
+      const nextHistory = [...history, { path: p.render_path, created_at: new Date().toISOString(), instruction: "Versão anterior ao ajuste" }].slice(-20);
+      const { error: updateError } = await supabase
+        .from("projects")
+        .update({
+          render_path: nextPath,
+          render_status: "done",
+          render_error: null,
+          render_model: RENDER_MODEL,
+          analysis: { ...priorAnalysis, render_history: nextHistory },
+        })
+        .eq("id", data.id);
+      if (updateError) throw new Error(`A imagem foi gerada, mas não foi possível atualizar o projeto: ${updateError.message}`);
+      return { ok: true as const };
+    } catch (e) {
+      return { ok: false as const, error: e instanceof Error ? e.message : "Falha ao editar o render." };
+    }
+  });
+
+const restoreRenderSchema = z.object({
+  id: z.string().uuid(),
+  path: z.string().min(1).max(500),
+});
+
+/** Restaura uma versão anterior sem gerar uma nova imagem nem consumir créditos de IA. */
+export const restoreRenderVersion = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => restoreRenderSchema.parse(d))
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    const { data: p, error } = await supabase.from("projects").select("id, render_path, analysis").eq("id", data.id).single();
+    if (error || !p) return { ok: false as const, error: "Projeto não encontrado." };
+    if (!data.path.startsWith(`${userId}/${data.id}/`)) return { ok: false as const, error: "Versão inválida para este projeto." };
+    const priorAnalysis = (p.analysis && typeof p.analysis === "object" ? p.analysis : {}) as Record<string, unknown>;
+    const history = Array.isArray(priorAnalysis.render_history)
+      ? (priorAnalysis.render_history as Array<{ path: string; created_at: string; instruction: string }>)
+      : [];
+    if (!history.some((v) => v.path === data.path)) return { ok: false as const, error: "Esta versão não está mais disponível no histórico." };
+    const nextHistory = history.filter((v) => v.path !== data.path);
+    if (p.render_path && p.render_path !== data.path) {
+      nextHistory.push({ path: p.render_path, created_at: new Date().toISOString(), instruction: "Versão substituída ao restaurar outra" });
+    }
+    const { error: updateError } = await supabase
+      .from("projects")
+      .update({ render_path: data.path, render_status: "done", render_error: null, analysis: { ...priorAnalysis, render_history: nextHistory.slice(-20) } })
+      .eq("id", data.id);
+    if (updateError) return { ok: false as const, error: `Não foi possível restaurar a versão: ${updateError.message}` };
+    return { ok: true as const };
+  });
