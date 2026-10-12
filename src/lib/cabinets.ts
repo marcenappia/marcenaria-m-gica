@@ -43,10 +43,10 @@ export function sanitizeCabinet(input: unknown): CabinetInput {
   for (const f of FIELDS) {
     const v = src[f.key];
     const n = typeof v === "number" ? v : typeof v === "string" ? parseMeasure(v, f.max) : null;
-    out[f.key] = n != null && n > 0 && n <= f.max ? (n as never) : null;
+    (out as Record<string, unknown>)[f.key] = n != null && n > 0 && n <= f.max ? n : null;
   }
-  const obs = typeof src.observacoes === "string" ? src.observacoes.slice(0, 500) : "";
-  out.observacoes = obs;
+  const obsRaw = src["observacoes"];
+  out.observacoes = typeof obsRaw === "string" ? obsRaw.slice(0, 500) : "";
   return out;
 }
 
@@ -54,7 +54,7 @@ function matchEstimate(estimates: VisualEstimate[], grupo: string, label: string
   const g = grupo.toLowerCase().slice(0, 8); // "superior" / "inferior"
   const l = label.toLowerCase().split(" ")[0];
   return estimates.find((e) => {
-    const i = e.item.toLowerCase();
+    const i = (e.item ?? "").toLowerCase();
     return i.includes(g) && i.includes(l);
   });
 }
