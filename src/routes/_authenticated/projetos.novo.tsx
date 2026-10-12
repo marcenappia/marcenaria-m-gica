@@ -112,10 +112,22 @@ function Novo() {
       <div className="space-y-4">
         <span className="eyebrow">Etapa 1</span>
         <h1 className="text-3xl">Foto real do ambiente</h1>
-        <label className="wood-grain flex aspect-[4/3] cursor-pointer items-center justify-center overflow-hidden rounded-lg border-2 border-dashed bg-card">
-          {preview ? <img src={preview} alt="Prévia" className="h-full w-full object-contain" /> : <span className="text-sm text-muted-foreground">Clique para enviar JPG, PNG ou WEBP (até 10 MB)</span>}
-          <input type="file" accept="image/jpeg,image/png,image/webp" className="sr-only" onChange={(e) => pick(e.target.files?.[0])} />
-        </label>
+        <div className="space-y-3">
+          <div className="wood-grain flex aspect-[4/3] items-center justify-center overflow-hidden rounded-lg border-2 border-dashed bg-card">
+            {preview ? <img src={preview} alt="Prévia da foto do ambiente" className="h-full w-full object-contain" /> : <div className="px-5 text-center"><p className="font-medium">Foto do ambiente do cliente</p><p className="mt-1 text-sm text-muted-foreground">Tire uma foto na hora ou escolha uma imagem salva no aparelho.</p></div>}
+          </div>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <label className="flex cursor-pointer items-center justify-center gap-2 rounded-md bg-primary px-4 py-3 text-center text-sm font-medium text-primary-foreground hover:opacity-90">
+              <span aria-hidden="true">📷</span> Tirar foto com a câmera
+              <input type="file" accept="image/*" capture="environment" className="sr-only" onChange={(e) => { pick(e.target.files?.[0]); e.currentTarget.value = ""; }} />
+            </label>
+            <label className="flex cursor-pointer items-center justify-center gap-2 rounded-md border bg-background px-4 py-3 text-center text-sm font-medium hover:bg-muted">
+              <span aria-hidden="true">🖼️</span> Escolher da galeria
+              <input type="file" accept="image/jpeg,image/png,image/webp" className="sr-only" onChange={(e) => { pick(e.target.files?.[0]); e.currentTarget.value = ""; }} />
+            </label>
+          </div>
+          <p className="text-xs text-muted-foreground">JPG, PNG ou WEBP · até 10 MB</p>
+        </div>
       </div>
       <div className="space-y-5">
         <span className="eyebrow">Etapa 2</span>
