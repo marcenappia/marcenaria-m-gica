@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { FIELDS, sanitizeCabinet, sniffImageType, type CabinetInput } from "./cabinets";
+import { buildDecorationGuide, INTERIOR_DESIGN_RENDER_SKILL, RENDER_EDIT_PRESERVATION_SKILL, TECHNICAL_CABINETRY_SKILL } from "./design-skills";
 
 const idSchema = z.object({ id: z.string().uuid() });
 
@@ -90,6 +91,9 @@ export const renderProject = createServerFn({ method: "POST" })
       const prompt = [
         "Photorealistic interior design render. Edit THIS exact photo: keep the same camera angle, perspective, walls, windows, doors, floor, ceiling and lighting.",
         "Only add/replace custom-made Brazilian joinery (marcenaria) as described. Do not add any text, labels, dimension lines or watermarks.",
+        INTERIOR_DESIGN_RENDER_SKILL,
+        TECHNICAL_CABINETRY_SKILL,
+        RENDER_EDIT_PRESERVATION_SKILL,
         a.prompt_render ?? "",
         `Client request (Portuguese): ${p.description}`,
         p.style ? `Style/finish: ${p.style}` : "",
@@ -145,6 +149,8 @@ export const editRender = createServerFn({ method: "POST" })
       const file = new File([bytes], `render-atual.${extension}`, { type: mime });
       const prompt = [
         "Make a localized edit to THIS existing interior-design render, not a new unrelated design.",
+        RENDER_EDIT_PRESERVATION_SKILL,
+        TECHNICAL_CABINETRY_SKILL,
         "STRICT PRESERVATION: keep the same camera angle, perspective, room geometry, architecture, walls, doors, windows, floor, ceiling, lighting, shadows, composition, and every furniture/detail not explicitly mentioned by the user.",
         "Change only what the user explicitly requests. Keep the existing proportions and layout. Do not add text, dimensions, labels, watermarks, or unrelated objects.",
         `User's requested edit: ${data.instruction}`,
@@ -208,4 +214,31 @@ export const restoreRenderVersion = createServerFn({ method: "POST" })
       .eq("id", data.id);
     if (updateError) return { ok: false as const, error: `Não foi possível restaurar a versão: ${updateError.message}` };
     return { ok: true as const };
+  });
+
+
+/** Guia de decoração por regras locais: sem chamada de IA, sem geração de imagem e sem créditos do provedor. */
+export const getDecorationGuide = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => idSchema.parse(d))
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    const { data: p, error } = await supabase
+      .from("projects")
+      .select("id, title, description, style, analysis, render_path")
+      .eq("id", data.id)
+      .single();
+    if (error || !p) return { ok: false as const, error: "Projeto não encontrado." };
+    if (!p.render_path || !p.render_path.startsWith(`${userId}/${data.id}/`)) {
+      return { ok: false as const, error: "Gere e salve um render deste projeto antes de pedir sugestões de decoração." };
+    }
+    return {
+      ok: true as const,
+      guide: buildDecorationGuide({
+        title: p.title,
+        description: p.description,
+        style: p.style,
+        analysis: p.analysis,
+      }),
+    };
   });
