@@ -7,7 +7,7 @@ import { Loader2, RotateCcw, FileDown, Sparkles, Wand2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { analyzeProject, renderProject } from "@/lib/projects.functions";
+import { analyzeProject, renderProject, editRender, restoreRenderVersion } from "@/lib/projects.functions";
 import { consolidateDimensions, sanitizeCabinet } from "@/lib/cabinets";
 import { useSignedUrl, type Project } from "@/lib/storage";
 import { exportPdf } from "@/lib/pdf";
@@ -31,7 +31,10 @@ function Detalhe() {
   const qc = useQueryClient();
   const analyze = useServerFn(analyzeProject);
   const render = useServerFn(renderProject);
-  const [busy, setBusy] = useState<"a" | "r" | null>(null);
+  const edit = useServerFn(editRender);
+  const restore = useServerFn(restoreRenderVersion);
+  const [editInstruction, setEditInstruction] = useState("");
+  const [busy, setBusy] = useState<"a" | "r" | "e" | "restore" | null>(null);
   const q = useQuery({
     queryKey: ["project", id],
     queryFn: async () => {
@@ -64,6 +67,43 @@ function Detalhe() {
   }
 
   const a = p.analysis;
+  const renderHistory = ((p.analysis as unknown as { render_history?: Array<{ path: string; created_at: string; instruction: string }> } | null)?.render_history ?? []);
+  async function runEdit() {
+    if (editInstruction.trim().length < 3) {
+      toast.error("Descreva a alteração que deseja fazer.");
+      return;
+    }
+    setBusy("e");
+    try {
+      const res = await edit({ data: { id, instruction: editInstruction.trim() } });
+      if (res.ok) {
+        toast.success("Nova versão criada; a imagem anterior ficou salva no histórico.");
+        setEditInstruction("");
+      } else {
+        toast.error(res.error);
+      }
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Não foi possível editar o render.");
+    } finally {
+      setBusy(null);
+      qc.invalidateQueries({ queryKey: ["project", id] });
+      qc.invalidateQueries({ queryKey: ["projects"] });
+    }
+  }
+  async function runRestore(path: string) {
+    setBusy("restore");
+    try {
+      const res = await restore({ data: { id, path } });
+      if (res.ok) toast.success("Versão restaurada sem gerar outra imagem.");
+      else toast.error(res.error);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Não foi possível restaurar a versão.");
+    } finally {
+      setBusy(null);
+      qc.invalidateQueries({ queryKey: ["project", id] });
+      qc.invalidateQueries({ queryKey: ["projects"] });
+    }
+  }
   return (
     <div className="space-y-8">
       <div className="flex flex-wrap items-end justify-between gap-4">
@@ -85,7 +125,7 @@ function Detalhe() {
         <figure className="space-y-2">
           <figcaption className="eyebrow">Render (IA — ilustrativo){p.render_model && ` · ${p.render_model}`}</figcaption>
           <div className="relative flex aspect-[4/3] items-center justify-center overflow-hidden rounded-lg border bg-muted">
-            {rend.data && <img src={rend.data} alt="Render" className={`h-full w-full object-contain ${busy === "r" ? "opacity-40 blur-sm" : ""}`} />}
+            {rend.data && <img src={rend.data} alt="Render atual" className={`h-full w-full object-contain ${busy === "r" || busy === "e" ? "opacity-40 blur-sm" : ""}`} />}
             {busy === "r" && <div className="absolute flex items-center gap-2 text-sm"><Loader2 className="size-4 animate-spin" /> Gerando render (pode levar até 2 min)…</div>}
             {!rend.data && busy !== "r" && <span className="px-6 text-center text-sm text-muted-foreground">{p.render_status === "error" ? "" : "Nenhum render ainda."}</span>}
           </div>
@@ -95,6 +135,50 @@ function Detalhe() {
             {p.render_status === "error" ? "Tentar render novamente" : p.render_path ? "Gerar novo render" : "Gerar render"}
           </Button>
           {p.analysis_status !== "done" && <p className="text-xs text-muted-foreground">Rode a análise primeiro.</p>}
+          {p.render_path && rend.data && (
+            <div className="mt-4 space-y-3 rounded-lg border bg-card p-4">
+              <div>
+                <h3 className="text-lg font-semibold">Editar este render</h3>
+                <p className="text-sm text-muted-foreground">Descreva apenas o que deve mudar. A foto original não será alterada; cada edição salva uma nova versão.</p>
+              </div>
+              <label htmlFor="render-edit-instruction" className="text-sm font-medium">Alteração desejada</label>
+              <textarea
+                id="render-edit-instruction"
+                value={editInstruction}
+                onChange={(event) => setEditInstruction(event.target.value)}
+                maxLength={1500}
+                rows={3}
+                placeholder="Ex.: Troque somente as portas para carvalho claro. Mantenha a bancada, paredes, iluminação, perspectiva e os demais móveis exatamente como estão."
+                className="w-full resize-y rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                disabled={!!busy}
+              />
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-xs text-muted-foreground">{editInstruction.length}/1500</span>
+                <Button onClick={runEdit} disabled={!!busy || editInstruction.trim().length < 3}>
+                  {busy === "e" ? <Loader2 className="size-4 animate-spin" /> : <Wand2 className="size-4" />}
+                  {busy === "e" ? "Editando render…" : "Aplicar alteração"}
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">A IA tenta preservar a perspectiva e os detalhes não mencionados, mas a edição generativa não garante preservação pixel a pixel. Confira o resultado antes de usar no projeto executivo.</p>
+            </div>
+          )}
+          {renderHistory.length > 0 && (
+            <div className="mt-4 space-y-2">
+              <h3 className="text-sm font-semibold">Versões anteriores</h3>
+              {renderHistory.slice().reverse().map((version, index) => (
+                <div key={version.path} className="flex flex-wrap items-center justify-between gap-2 rounded-md border p-3">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm">{version.instruction || "Versão anterior"}</p>
+                    <p className="text-xs text-muted-foreground">{new Date(version.created_at).toLocaleString("pt-BR")}</p>
+                  </div>
+                  <Button size="sm" variant="outline" disabled={!!busy} onClick={() => runRestore(version.path)}>
+                    {busy === "restore" ? <Loader2 className="size-4 animate-spin" /> : <RotateCcw className="size-4" />}
+                    Restaurar
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
         </figure>
       </div>
 
