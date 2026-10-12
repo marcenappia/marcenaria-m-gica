@@ -109,7 +109,7 @@ export function buildDecorationGuide(project: {
     add("Objetos decorativos", "Escolha poucos objetos em materiais e cores que repitam o acabamento principal.", "Mantém a composição intencional e deixa o móvel em evidência.", ["objetos decorativos estilo " + style, "vaso decorativo tons coordenados"]);
   }
 
-  if (/industrial/.test(styleText)) {
+  if (styleAware && /industrial/.test(styleText)) {
     suggestions.push({
       category: "Direção de estilo",
       suggestion: "Priorize metal preto fosco, madeira de leitura natural e formas simples, sem exagerar no contraste.",
@@ -118,7 +118,7 @@ export function buildDecorationGuide(project: {
       confidence: "baseado-no-estilo",
       buyingNote: "Referência de busca, não produto validado. Confirmar dimensões, acabamento, compatibilidade, preço e disponibilidade antes de comprar.",
     });
-  } else if (/escandinav|minimal|contempor|clean/.test(styleText)) {
+  } else if (styleAware && /escandinav|minimal|contempor|clean/.test(styleText)) {
     suggestions.push({
       category: "Direção de estilo",
       suggestion: "Prefira formas simples, tons suaves e poucos acessórios; deixe a textura da madeira ou o acabamento principal aparecer.",
@@ -127,7 +127,7 @@ export function buildDecorationGuide(project: {
       confidence: "baseado-no-estilo",
       buyingNote: "Referência de busca, não produto validado. Confirmar dimensões, acabamento, compatibilidade, preço e disponibilidade antes de comprar.",
     });
-  } else if (/rustic|rustico|natural/.test(styleText)) {
+  } else if (styleAware && /rustic|rustico|natural/.test(styleText)) {
     suggestions.push({
       category: "Direção de estilo",
       suggestion: "Combine texturas naturais e tons terrosos em poucos pontos, sem misturar padrões de madeira concorrentes.",
