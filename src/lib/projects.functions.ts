@@ -225,11 +225,10 @@ export const getDecorationGuide = createServerFn({ method: "POST" })
     const { supabase, userId } = context;
     const { data: p, error } = await supabase
       .from("projects")
-      .select("id, title, description, style, analysis, render_path, user_id")
+      .select("id, title, description, style, analysis, render_path")
       .eq("id", data.id)
       .single();
     if (error || !p) return { ok: false as const, error: "Projeto não encontrado." };
-    if (p.user_id !== userId) return { ok: false as const, error: "Este projeto não pertence à sua conta." };
     if (!p.render_path || !p.render_path.startsWith(`${userId}/${data.id}/`)) {
       return { ok: false as const, error: "Gere e salve um render deste projeto antes de pedir sugestões de decoração." };
     }
