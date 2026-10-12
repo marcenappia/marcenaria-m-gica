@@ -7,7 +7,8 @@ import { Loader2, RotateCcw, FileDown, Sparkles, Wand2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { analyzeProject, renderProject, editRender, restoreRenderVersion } from "@/lib/projects.functions";
+import { analyzeProject, renderProject, editRender, restoreRenderVersion, getDecorationGuide } from "@/lib/projects.functions";
+import type { DecorationGuide } from "@/lib/design-skills";
 import { consolidateDimensions, sanitizeCabinet } from "@/lib/cabinets";
 import { useSignedUrl, type Project } from "@/lib/storage";
 import { exportPdf } from "@/lib/pdf";
@@ -33,6 +34,8 @@ function Detalhe() {
   const render = useServerFn(renderProject);
   const edit = useServerFn(editRender);
   const restore = useServerFn(restoreRenderVersion);
+  const decorate = useServerFn(getDecorationGuide);
+  const [decorationGuide, setDecorationGuide] = useState<DecorationGuide | null>(null);
   const [editInstruction, setEditInstruction] = useState("");
   const [viewer, setViewer] = useState<{src:string;title:string}|null>(null);
   const [zoom, setZoom] = useState(1);
@@ -106,6 +109,20 @@ function Detalhe() {
       qc.invalidateQueries({ queryKey: ["projects"] });
     }
   }
+
+  async function runDecorationGuide() {
+    try {
+      const res = await decorate({ data: { id } });
+      if (res.ok) {
+        setDecorationGuide(res.guide);
+        toast.success("Guia de decoração preparado sem chamada de IA.");
+      } else {
+        toast.error(res.error);
+      }
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Não foi possível preparar o guia de decoração.");
+    }
+  }
   return (
     <div className="space-y-8">\n      {viewer && <div className="fixed inset-0 z-50 flex flex-col bg-black/95 p-3 sm:p-6" role="dialog" aria-modal="true" aria-label={viewer.title}><div className="flex items-center justify-between gap-3 text-white"><h2 className="font-medium">{viewer.title}</h2><div className="flex items-center gap-2"><button type="button" onClick={() => setZoom((z) => Math.max(0.5, +(z - 0.25).toFixed(2)))} className="rounded border border-white/30 px-3 py-2" aria-label="Diminuir zoom">−</button><span className="min-w-14 text-center text-sm">{Math.round(zoom*100)}%</span><button type="button" onClick={() => setZoom((z) => Math.min(3, +(z + 0.25).toFixed(2)))} className="rounded border border-white/30 px-3 py-2" aria-label="Aumentar zoom">+</button><button type="button" onClick={() => setZoom(1)} className="rounded border border-white/30 px-3 py-2">Ajustar</button><button type="button" onClick={() => setViewer(null)} className="rounded bg-white px-4 py-2 font-medium text-black">Fechar ✕</button></div></div><div className="mt-3 flex min-h-0 flex-1 items-center justify-center overflow-auto rounded-lg"><img src={viewer.src} alt={viewer.title} style={{transform:`scale(${zoom})`,transformOrigin:"center",maxWidth:zoom===1?"100%":"none",maxHeight:zoom===1?"100%":"none"}} className="object-contain transition-transform duration-150" /></div><p className="pt-2 text-center text-xs text-white/70">Use + / − para aproximar e mostrar os detalhes ao cliente.</p></div>}
       <div className="flex flex-wrap items-end justify-between gap-4">
@@ -136,6 +153,11 @@ function Detalhe() {
             {p.render_status === "error" ? <RotateCcw className="size-4" /> : <Wand2 className="size-4" />}
             {p.render_status === "error" ? "Tentar render novamente" : p.render_path ? "Gerar novo render" : "Gerar render"}
           </Button>
+          {p.render_path && rend.data && (
+            <Button type="button" variant="outline" className="w-full" disabled={!!busy} onClick={runDecorationGuide}>
+              <Sparkles className="size-4" /> Decorar projeto · sem IA
+            </Button>
+          )}
           {p.analysis_status !== "done" && <p className="text-xs text-muted-foreground">Rode a análise primeiro.</p>}
           {p.render_path && rend.data && (
             <div className="mt-4 space-y-3 rounded-lg border bg-card p-4">
@@ -163,6 +185,36 @@ function Detalhe() {
               </div>
               <p className="text-xs text-muted-foreground">A IA tenta preservar a perspectiva e os detalhes não mencionados, mas a edição generativa não garante preservação pixel a pixel. Confira o resultado antes de usar no projeto executivo.</p>
             </div>
+          )}
+          {decorationGuide && (
+            <section className="mt-4 space-y-4 rounded-lg border bg-card p-4" aria-label="Guia de decoração">
+              <div>
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <h3 className="text-lg font-semibold">Guia de decoração</h3>
+                  <Badge>Sem chamada de IA</Badge>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  {decorationGuide.environment} · Estilo: {decorationGuide.style}
+                </p>
+                <p className="mt-2 text-xs text-muted-foreground">{decorationGuide.disclaimer}</p>
+              </div>
+              <div className="grid gap-3 md:grid-cols-2">
+                {decorationGuide.suggestions.map((item, index) => (
+                  <article key={item.category + index} className="space-y-2 rounded-md border p-3">
+                    <h4 className="font-medium">{item.category}</h4>
+                    <p className="text-sm">{item.suggestion}</p>
+                    <p className="text-sm text-muted-foreground">{item.reason}</p>
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Referências para pesquisar</p>
+                      <ul className="mt-1 list-disc pl-5 text-sm">
+                        {item.searchTerms.map((term) => <li key={term}>{term}</li>)}
+                      </ul>
+                    </div>
+                    <p className="text-xs text-muted-foreground">{item.buyingNote}</p>
+                  </article>
+                ))}
+              </div>
+            </section>
           )}
           {renderHistory.length > 0 && (
             <div className="mt-4 space-y-2">
