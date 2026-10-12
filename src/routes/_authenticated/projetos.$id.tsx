@@ -207,7 +207,7 @@ function Detalhe() {
                     <div>
                       <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Referências para pesquisar</p>
                       <ul className="mt-1 list-disc pl-5 text-sm">
-                        {item.searchTerms.map((term) => <li key={term}>{term}</li>)}
+                        {item.searchTerms.map((term) => <li key={term}><a href={`https://www.google.com/search?tbm=shop&q=${encodeURIComponent(term)}`} target="_blank" rel="noreferrer" className="underline underline-offset-2 hover:text-primary">{term}</a></li>)}
                       </ul>
                     </div>
                     <p className="text-xs text-muted-foreground">{item.buyingNote}</p>
