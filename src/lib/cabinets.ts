@@ -52,7 +52,7 @@ export function sanitizeCabinet(input: unknown): CabinetInput {
 
 function matchEstimate(estimates: VisualEstimate[], grupo: string, label: string) {
   const g = grupo.toLowerCase().slice(0, 8); // "superior" / "inferior"
-  const l = label.toLowerCase().split(" ")[0];
+  const l = label.toLowerCase().split(" ")[0] ?? "";
   return estimates.find((e) => {
     const i = (e.item ?? "").toLowerCase();
     return i.includes(g) && i.includes(l);
