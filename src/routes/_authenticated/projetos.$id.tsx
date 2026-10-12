@@ -34,6 +34,8 @@ function Detalhe() {
   const edit = useServerFn(editRender);
   const restore = useServerFn(restoreRenderVersion);
   const [editInstruction, setEditInstruction] = useState("");
+  const [viewer, setViewer] = useState<{src:string;title:string}|null>(null);
+  const [zoom, setZoom] = useState(1);
   const [busy, setBusy] = useState<"a" | "r" | "e" | "restore" | null>(null);
   const q = useQuery({
     queryKey: ["project", id],
@@ -105,7 +107,7 @@ function Detalhe() {
     }
   }
   return (
-    <div className="space-y-8">
+    <div className="space-y-8">\n      {viewer && <div className="fixed inset-0 z-50 flex flex-col bg-black/95 p-3 sm:p-6" role="dialog" aria-modal="true" aria-label={viewer.title}><div className="flex items-center justify-between gap-3 text-white"><h2 className="font-medium">{viewer.title}</h2><div className="flex items-center gap-2"><button type="button" onClick={() => setZoom((z) => Math.max(0.5, +(z - 0.25).toFixed(2)))} className="rounded border border-white/30 px-3 py-2" aria-label="Diminuir zoom">−</button><span className="min-w-14 text-center text-sm">{Math.round(zoom*100)}%</span><button type="button" onClick={() => setZoom((z) => Math.min(3, +(z + 0.25).toFixed(2)))} className="rounded border border-white/30 px-3 py-2" aria-label="Aumentar zoom">+</button><button type="button" onClick={() => setZoom(1)} className="rounded border border-white/30 px-3 py-2">Ajustar</button><button type="button" onClick={() => setViewer(null)} className="rounded bg-white px-4 py-2 font-medium text-black">Fechar ✕</button></div></div><div className="mt-3 flex min-h-0 flex-1 items-center justify-center overflow-auto rounded-lg"><img src={viewer.src} alt={viewer.title} style={{transform:`scale(${zoom})`,transformOrigin:"center",maxWidth:zoom===1?"100%":"none",maxHeight:zoom===1?"100%":"none"}} className="object-contain transition-transform duration-150" /></div><p className="pt-2 text-center text-xs text-white/70">Use + / − para aproximar e mostrar os detalhes ao cliente.</p></div>}
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <Link to="/projetos" className="eyebrow hover:text-primary">← Biblioteca</Link>
@@ -120,16 +122,16 @@ function Detalhe() {
       <div className="grid gap-6 lg:grid-cols-2">
         <figure className="space-y-2">
           <figcaption className="eyebrow">Foto original</figcaption>
-          <div className="aspect-[4/3] overflow-hidden rounded-lg border bg-muted">{orig.data && <img src={orig.data} alt="Foto original" className="h-full w-full object-contain" />}</div>
+          <div className="relative aspect-[4/3] overflow-hidden rounded-lg border bg-muted">{orig.data && <><button type="button" onClick={() => { setViewer({src:orig.data!,title:"Foto original"}); setZoom(1); }} className="h-full w-full cursor-zoom-in" aria-label="Ampliar foto original"><img src={orig.data} alt="Foto original — clique para ampliar" className="h-full w-full object-contain" /></button><button type="button" onClick={() => { setViewer({src:orig.data!,title:"Foto original"}); setZoom(1); }} className="absolute bottom-2 right-2 rounded-md bg-background/90 px-3 py-2 text-xs shadow">Ampliar foto ⤢</button></>}</div>
         </figure>
         <figure className="space-y-2">
           <figcaption className="eyebrow">Render (IA — ilustrativo){p.render_model && ` · ${p.render_model}`}</figcaption>
           <div className="relative flex aspect-[4/3] items-center justify-center overflow-hidden rounded-lg border bg-muted">
-            {rend.data && <img src={rend.data} alt="Render atual" className={`h-full w-full object-contain ${busy === "r" || busy === "e" ? "opacity-40 blur-sm" : ""}`} />}
+            {rend.data && <button type="button" onClick={() => { setViewer({src:rend.data!,title:"Render do projeto"}); setZoom(1); }} className="h-full w-full cursor-zoom-in" aria-label="Abrir render ampliado"><img src={rend.data} alt="Render atual — clique para ampliar" className={`h-full w-full object-contain ${busy === "r" || busy === "e" ? "opacity-40 blur-sm" : ""}`} /></button>}
             {busy === "r" && <div className="absolute flex items-center gap-2 text-sm"><Loader2 className="size-4 animate-spin" /> Gerando render (pode levar até 2 min)…</div>}
             {!rend.data && busy !== "r" && <span className="px-6 text-center text-sm text-muted-foreground">{p.render_status === "error" ? "" : "Nenhum render ainda."}</span>}
           </div>
-          {p.render_status === "error" && busy !== "r" && <p className="text-sm text-destructive">Falha: {p.render_error}</p>}
+          {rend.data && <Button type="button" variant="outline" className="w-full" onClick={() => { setViewer({src:rend.data!,title:"Render do projeto"}); setZoom(1); }}>Abrir render ampliado ⤢</Button>}\n          {p.render_status === "error" && busy !== "r" && <p className="text-sm text-destructive">Falha: {p.render_error}</p>}
           <Button className="w-full" disabled={!!busy || p.analysis_status !== "done"} onClick={() => run("r")}>
             {p.render_status === "error" ? <RotateCcw className="size-4" /> : <Wand2 className="size-4" />}
             {p.render_status === "error" ? "Tentar render novamente" : p.render_path ? "Gerar novo render" : "Gerar render"}
