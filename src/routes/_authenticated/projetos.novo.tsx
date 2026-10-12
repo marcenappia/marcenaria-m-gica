@@ -57,6 +57,12 @@ function Novo() {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [style, setStyle] = useState("");
+  const [environment, setEnvironment] = useState("cozinha");
+  const [modules, setModules] = useState<string[]>(["inferiores", "superiores"]);
+  const catalog: Record<string, { id: string; label: string }[]> = {
+    cozinha: [{id:"inferiores",label:"Armários inferiores"},{id:"superiores",label:"Armários superiores"},{id:"torre-quente",label:"Torre quente"},{id:"despenseiro",label:"Despenseiro"},{id:"gaveteiro",label:"Gaveteiro"},{id:"bancada",label:"Bancada"},{id:"ilha",label:"Ilha"},{id:"peninsula",label:"Península"},{id:"nicho",label:"Nichos"},{id:"cristaleira",label:"Cristaleira"}],
+    sala: [{id:"painel-tv",label:"Painel de TV"},{id:"rack",label:"Rack"},{id:"estante",label:"Estante"},{id:"prateleiras",label:"Prateleiras"},{id:"bar",label:"Bar"},{id:"cristaleira",label:"Cristaleira"}], quarto: [{id:"roupeiro",label:"Roupeiro"},{id:"portas-correr",label:"Portas de correr"},{id:"maleiro",label:"Maleiro"},{id:"gaveteiro",label:"Gaveteiro"},{id:"cabeceira",label:"Cabeceira"}], closet: [{id:"roupeiro",label:"Módulos de roupeiro"},{id:"cabideiro",label:"Cabideiros"},{id:"gaveteiro",label:"Gaveteiros"},{id:"sapateira",label:"Sapateira"},{id:"maleiro",label:"Maleiro"}], banheiro: [{id:"gabinete",label:"Gabinete"},{id:"espelheira",label:"Espelheira"},{id:"nicho",label:"Nicho"},{id:"armario-alto",label:"Armário alto"}], lavanderia: [{id:"armario-inferior",label:"Armário inferior"},{id:"armario-superior",label:"Armário superior"},{id:"torre-lavanderia",label:"Torre para máquinas"},{id:"bancada",label:"Bancada"},{id:"vassoureiro",label:"Vassoureiro"}], gourmet: [{id:"armario-inferior",label:"Armário inferior"},{id:"armario-superior",label:"Armário superior"},{id:"bancada",label:"Bancada"},{id:"ilha",label:"Ilha gourmet"},{id:"nicho",label:"Nichos"}], comercial: [{id:"recepcao",label:"Balcão de recepção"},{id:"expositor",label:"Expositores"},{id:"armario",label:"Armários"},{id:"bancada",label:"Bancada de atendimento"}], outro: [{id:"modulo-personalizado",label:"Módulo personalizado"},{id:"armario",label:"Armário"},{id:"bancada",label:"Bancada"},{id:"nicho",label:"Nicho"}]
+  };
   const [upper, setUpper] = useState<Raw>({});
   const [lower, setLower] = useState<Raw>({});
   const [busy, setBusy] = useState(false);
@@ -84,7 +90,7 @@ function Novo() {
     try {
       const { data: proj, error } = await supabase
         .from("projects")
-        .insert({ title: title.trim() || "Projeto sem título", description, style, upper_cabinets: toCabinet(upper) as any, lower_cabinets: toCabinet(lower) as any, user_id: user.id })
+        .insert({ title: title.trim() || "Projeto sem título", description: `${description.trim()}\n\nAMBIENTE: ${environment}.\nMÓDULOS SOLICITADOS: ${modules.map((id) => catalog[environment]?.find((m) => m.id === id)?.label ?? id).join(", ") || "a definir"}.\nREGRA VISUAL: preservar paredes, portas, janelas, piso, teto, iluminação e perspectiva da foto; alterar somente a marcenaria descrita. Não inventar medidas que não foram informadas.`, style, upper_cabinets: toCabinet(upper) as any, lower_cabinets: toCabinet(lower) as any, user_id: user.id })
         .select("id")
         .single();
       if (error) throw error;
@@ -116,7 +122,7 @@ function Novo() {
         <h2 className="text-3xl">Pedido e medidas</h2>
         <div className="space-y-1"><Label>Nome do projeto</Label><Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Cozinha — Apto 302" /></div>
         <div className="space-y-1"><Label>Descreva a marcenaria</Label><Textarea rows={4} required value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Armários em L com torre quente, puxador cava…" /></div>
-        <div className="space-y-1"><Label>Estilo / acabamento</Label><Input value={style} onChange={(e) => setStyle(e.target.value)} placeholder="MDF freijó + laca off-white" /></div>
+        <div className="space-y-1"><Label>Ambiente</Label><select value={environment} onChange={(e) => { setEnvironment(e.target.value); setModules([]); }} className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"><option value="cozinha">Cozinha</option><option value="sala">Sala / living</option><option value="quarto">Quarto</option><option value="closet">Closet</option><option value="banheiro">Banheiro / lavabo</option><option value="lavanderia">Lavanderia</option><option value="gourmet">Churrasqueira / Gourmet</option><option value="comercial">Comercial</option><option value="outro">Outro ambiente</option></select></div>\n        <fieldset className="space-y-2 rounded-lg border bg-card p-4"><legend className="px-1 font-medium">Módulos desejados</legend><div className="grid grid-cols-1 gap-2 sm:grid-cols-2">{(catalog[environment] ?? catalog.outro).map((m) => <label key={m.id} className="flex cursor-pointer items-center gap-2 text-sm"><input type="checkbox" checked={modules.includes(m.id)} onChange={(e) => setModules((old) => e.target.checked ? [...old, m.id] : old.filter((id) => id !== m.id))} />{m.label}</label>)}</div><p className="text-xs text-muted-foreground">As escolhas ficam registradas no briefing que orienta o projeto.</p></fieldset>\n        <div className="space-y-1"><Label>Estilo / acabamento</Label><Input value={style} onChange={(e) => setStyle(e.target.value)} placeholder="MDF freijó + laca off-white" /></div>
         <CabinetFields title="Armários superiores" value={upper} onChange={setUpper} />
         <CabinetFields title="Armários inferiores" value={lower} onChange={setLower} />
         <Button type="submit" className="w-full" disabled={busy}>{busy ? "Salvando foto e projeto…" : "Salvar projeto"}</Button>
