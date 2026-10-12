@@ -165,7 +165,7 @@ function Detalhe() {
           {renderHistory.length > 0 && (
             <div className="mt-4 space-y-2">
               <h3 className="text-sm font-semibold">Versões anteriores</h3>
-              {renderHistory.slice().reverse().map((version, index) => (
+              {renderHistory.slice().reverse().map((version) => (
                 <div key={version.path} className="flex flex-wrap items-center justify-between gap-2 rounded-md border p-3">
                   <div className="min-w-0 flex-1">
                     <p className="text-sm">{version.instruction || "Versão anterior"}</p>
