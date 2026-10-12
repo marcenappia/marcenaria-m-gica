@@ -23,7 +23,7 @@ export const Route = createFileRoute("/_authenticated/projetos/novo")({
 type Raw = Record<string, string>;
 
 function toCabinet(raw: Raw): CabinetInput {
-  const c: CabinetInput = { observacoes: (raw.observacoes ?? "").slice(0, 500) };
+  const c: CabinetInput = { observacoes: (raw["observacoes"] ?? "").slice(0, 500) };
   for (const f of FIELDS) (c as any)[f.key] = parseMeasure(raw[f.key] ?? "", f.max);
   return c;
 }
@@ -43,7 +43,7 @@ function CabinetFields({ title, value, onChange }: { title: string; value: Raw; 
       </div>
       <div className="space-y-1">
         <Label className="text-xs">Observações</Label>
-        <Input value={value.observacoes ?? ""} onChange={(e) => onChange({ ...value, observacoes: e.target.value })} />
+        <Input value={value["observacoes"] ?? ""} onChange={(e) => onChange({ ...value, observacoes: e.target.value })} />
       </div>
     </fieldset>
   );
@@ -66,18 +66,18 @@ function Novo() {
   function pick(f: File | undefined) {
     if (!f) return;
     const err = validateUploadMeta(f.type, f.size);
-    if (err) return toast.error(err);
+    if (err) { toast.error(err); return; }
     setFile(f);
     setPreview(URL.createObjectURL(f));
   }
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
-    if (!file) return toast.error("Envie a foto do ambiente.");
+    if (!file) { toast.error("Envie a foto do ambiente."); return; }
     for (const [raw, name] of [[upper, "superiores"], [lower, "inferiores"]] as const) {
       for (const f of FIELDS) {
         const v = raw[f.key];
-        if (v && parseMeasure(v, f.max) == null) return toast.error(`${f.label} (${name}) inválida.`);
+        if (v && parseMeasure(v, f.max) == null) { toast.error(`${f.label} (${name}) inválida.`); return; }
       }
     }
     setBusy(true);
