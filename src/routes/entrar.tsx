@@ -9,9 +9,10 @@ import { Label } from "@/components/ui/label";
 export const Route = createFileRoute("/entrar")({
   head: () => ({
     meta: [
-      { title: "Entrar — Oficina IA" },
+      { title: "Entrar — Marcenaria Mágica" },
       { name: "description", content: "Acesse sua biblioteca de projetos de marcenaria." },
-      { property: "og:title", content: "Entrar — Oficina IA" },
+      { name: "robots", content: "noindex, nofollow" },
+      { property: "og:title", content: "Entrar — Marcenaria Mágica" },
       { property: "og:description", content: "Acesse sua biblioteca de projetos de marcenaria." },
     ],
   }),
