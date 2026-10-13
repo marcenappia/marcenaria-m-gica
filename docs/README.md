@@ -26,3 +26,7 @@ Estes documentos registram decisões e requisitos conhecidos a partir do histór
 ## Regra de preservação
 
 A renderização baseada em foto real é um fluxo crítico. Não substituir, remover ou refatorar esse fluxo sem primeiro entender sua implementação atual, criar/rodar testes de regressão e demonstrar que o caminho completo continua funcionando.
+
+## Auditoria de engenharia
+
+- [Auditoria inicial e achados verificados](./ENGINEERING_AUDIT.md)
