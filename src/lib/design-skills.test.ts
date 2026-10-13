@@ -1,11 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { buildDecorationGuide, INTERIOR_DESIGN_RENDER_SKILL, RENDER_EDIT_PRESERVATION_SKILL, TECHNICAL_CABINETRY_SKILL } from "./design-skills";
+import { buildDecorationGuide, DIGITAL_PROMOB_SKILL, INTERIOR_DESIGN_RENDER_SKILL, RENDER_EDIT_PRESERVATION_SKILL, TECHNICAL_CABINETRY_SKILL } from "./design-skills";
 
 describe("design skills", () => {
   it("keeps render guidance available locally without a provider call", () => {
     expect(INTERIOR_DESIGN_RENDER_SKILL).toContain("estilo");
     expect(TECHNICAL_CABINETRY_SKILL).toContain("dimensions");
     expect(RENDER_EDIT_PRESERVATION_SKILL).toContain("change only");
+    expect(DIGITAL_PROMOB_SKILL).toContain("supplied real-room photo");
+    expect(DIGITAL_PROMOB_SKILL).toContain("module count");
   });
 
   it("builds a kitchen decoration guide without AI and with buying cautions", () => {
