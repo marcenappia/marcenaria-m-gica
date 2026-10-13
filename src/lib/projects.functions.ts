@@ -30,12 +30,16 @@ export const aiDiagnostics = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async () => {
     const { ANALYSIS_MODEL, RENDER_MODEL, GATEWAY } = await import("./ai.server");
-    const key = process.env["LOVABLE_API_KEY"];
+    const vercelKey = process.env["AI_GATEWAY_API_KEY"] || process.env["VERCEL_OIDC_TOKEN"];
+    const vercelExpected = Boolean(vercelKey) || process.env["VERCEL"] === "1" || process.env["AI_PROVIDER"]?.toLowerCase() === "vercel";
+    const key = vercelKey || (vercelExpected ? undefined : process.env["LOVABLE_API_KEY"]);
+    const baseUrl = vercelExpected ? "https://ai-gateway.vercel.sh" : GATEWAY;
     if (!key) {
-      return { keyPresent: false, reachable: false, analysisModel: ANALYSIS_MODEL, renderModel: RENDER_MODEL, analysisAvailable: false, renderAvailable: false, error: "LOVABLE_API_KEY ausente no servidor." };
+      const provider = vercelExpected ? "AI_GATEWAY_API_KEY ou VERCEL_OIDC_TOKEN" : "LOVABLE_API_KEY";
+      return { keyPresent: false, reachable: false, analysisModel: ANALYSIS_MODEL, renderModel: RENDER_MODEL, analysisAvailable: false, renderAvailable: false, error: `${provider} ausente no servidor.` };
     }
     try {
-      const r = await fetch(`${GATEWAY}/v1/models`, { headers: { Authorization: `Bearer ${key}` } });
+      const r = await fetch(`${baseUrl}/v1/models`, { headers: { Authorization: `Bearer ${key}` } });
       if (!r.ok) {
         return { keyPresent: true, reachable: false, analysisModel: ANALYSIS_MODEL, renderModel: RENDER_MODEL, analysisAvailable: false, renderAvailable: false, error: `Gateway respondeu ${r.status}.` };
       }
