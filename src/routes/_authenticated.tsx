@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 
 export const Route = createFileRoute("/_authenticated")({
+  head: () => ({ meta: [{ name: "robots", content: "noindex, nofollow" }] }),
   ssr: false,
   beforeLoad: async () => {
     const { data } = await supabase.auth.getSession();
