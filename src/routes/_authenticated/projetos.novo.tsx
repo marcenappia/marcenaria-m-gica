@@ -52,8 +52,8 @@ function Novo() {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [style, setStyle] = useState("");
-  const [environment, setEnvironment] = useState("cozinha");
-  const [modules, setModules] = useState<string[]>(["inferiores", "superiores"]);
+  const [environment, setEnvironment] = useState("");
+  const [modules, setModules] = useState<string[]>([]);
   const [upper, setUpper] = useState<Raw>({});
   const [lower, setLower] = useState<Raw>({});
   const [stage, setStage] = useState<Stage>("idle");
@@ -96,7 +96,7 @@ function Novo() {
       const chosenModules = modules.map((id) => catalog[environment]?.find((m) => m.id === id)?.label ?? id);
       const projectDescription = [
         description.trim(),
-        `AMBIENTE: ${environment}.`,
+        `AMBIENTE: ${environment || "não especificado; interpretar a partir da foto e do pedido"}.`,
         `MÓDULOS SOLICITADOS: ${chosenModules.join(", ") || "a definir"}.`,
         "REGRA VISUAL: editar a foto original, preservar arquitetura, paredes, portas, janelas, piso, teto, iluminação e perspectiva. Alterar somente o que foi pedido. Não inventar medidas exatas.",
       ].join("\n\n");
@@ -167,7 +167,7 @@ function Novo() {
         <details className="rounded-lg border px-4 py-3">
           <summary className="cursor-pointer select-none text-sm font-semibold">Ajustes técnicos opcionais · ambiente, módulos e medidas</summary>
           <div className="mt-4 space-y-4">
-            <div className="space-y-1"><Label htmlFor="environment">Tipo de ambiente</Label><select id="environment" value={environment} onChange={(e) => { setEnvironment(e.target.value); setModules([]); }} className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"><option value="cozinha">Cozinha</option><option value="sala">Sala / living</option><option value="quarto">Quarto</option><option value="closet">Closet</option><option value="banheiro">Banheiro / lavabo</option><option value="lavanderia">Lavanderia</option><option value="gourmet">Churrasqueira / Gourmet</option><option value="comercial">Comercial</option><option value="outro">Outro ambiente</option></select></div>
+            <div className="space-y-1"><Label htmlFor="environment">Tipo de ambiente</Label><select id="environment" value={environment} onChange={(e) => { setEnvironment(e.target.value); setModules([]); }} className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"><option value="">Não informar agora</option><option value="cozinha">Cozinha</option><option value="sala">Sala / living</option><option value="quarto">Quarto</option><option value="closet">Closet</option><option value="banheiro">Banheiro / lavabo</option><option value="lavanderia">Lavanderia</option><option value="gourmet">Churrasqueira / Gourmet</option><option value="comercial">Comercial</option><option value="outro">Outro ambiente</option></select></div>
             <fieldset className="space-y-2 rounded-lg border bg-card p-4"><legend className="px-1 font-medium">Módulos desejados</legend><div className="grid grid-cols-1 gap-2 sm:grid-cols-2">{(catalog[environment] ?? catalog.outro).map((m) => <label key={m.id} className="flex cursor-pointer items-center gap-2 text-sm"><input type="checkbox" checked={modules.includes(m.id)} onChange={(e) => setModules((old) => e.target.checked ? [...old, m.id] : old.filter((id) => id !== m.id))} />{m.label}</label>)}</div></fieldset>
             <div className="space-y-1"><Label htmlFor="project-style">Estilo / acabamento (opcional)</Label><Input id="project-style" value={style} onChange={(e) => setStyle(e.target.value)} placeholder="MDF freijó + laca off-white" /></div>
             <CabinetFields title="Armários superiores" value={upper} onChange={setUpper} /><CabinetFields title="Armários inferiores" value={lower} onChange={setLower} />
