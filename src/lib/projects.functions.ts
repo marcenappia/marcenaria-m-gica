@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { FIELDS, sanitizeCabinet, sniffImageType, type CabinetInput } from "./cabinets";
-import { buildDecorationGuide, INTERIOR_DESIGN_RENDER_SKILL, RENDER_EDIT_PRESERVATION_SKILL, TECHNICAL_CABINETRY_SKILL } from "./design-skills";
+import { buildDecorationGuide, DIGITAL_PROMOB_SKILL, INTERIOR_DESIGN_RENDER_SKILL, RENDER_EDIT_PRESERVATION_SKILL, TECHNICAL_CABINETRY_SKILL } from "./design-skills";
 
 const idSchema = z.object({ id: z.string().uuid() });
 
@@ -101,6 +101,7 @@ export const renderProject = createServerFn({ method: "POST" })
         INTERIOR_DESIGN_RENDER_SKILL,
         TECHNICAL_CABINETRY_SKILL,
         RENDER_EDIT_PRESERVATION_SKILL,
+        DIGITAL_PROMOB_SKILL,
         a.prompt_render ?? "",
         `Client request (Portuguese): ${p.description}`,
         p.style ? `Style/finish: ${p.style}` : "",
@@ -164,6 +165,7 @@ export const editRender = createServerFn({ method: "POST" })
       const prompt = [
         "Make a localized edit to THIS existing interior-design render, not a new unrelated design.",
         RENDER_EDIT_PRESERVATION_SKILL,
+        DIGITAL_PROMOB_SKILL,
         TECHNICAL_CABINETRY_SKILL,
         "STRICT PRESERVATION: keep the same camera angle, perspective, room geometry, architecture, walls, doors, windows, floor, ceiling, lighting, shadows, composition, and every furniture/detail not explicitly mentioned by the user.",
         "Change only what the user explicitly requests. Keep the existing proportions and layout. Do not add text, dimensions, labels, watermarks, or unrelated objects.",
