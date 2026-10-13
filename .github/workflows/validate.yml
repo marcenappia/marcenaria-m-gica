@@ -16,7 +16,7 @@ jobs:
     env:
       # Build-time placeholders only; never used for deployment or real API access.
       VITE_SUPABASE_URL: https://example.supabase.co
-      VITE_SUPABASE_ANON_KEY: ci-placeholder-anon-key
+      VITE_SUPABASE_PUBLISHABLE_KEY: ci-placeholder-publishable-key
     steps:
       - name: Checkout
         uses: actions/checkout@v4
