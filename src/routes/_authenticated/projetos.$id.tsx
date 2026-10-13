@@ -16,9 +16,9 @@ import { exportPdf } from "@/lib/pdf";
 export const Route = createFileRoute("/_authenticated/projetos/$id")({
   head: () => ({
     meta: [
-      { title: "Projeto — Oficina IA" },
+      { title: "Projeto — Marcenaria Mágica" },
       { name: "description", content: "Análise estruturada, medidas e render do projeto de marcenaria." },
-      { property: "og:title", content: "Projeto — Oficina IA" },
+      { property: "og:title", content: "Projeto — Marcenaria Mágica" },
       { property: "og:description", content: "Análise estruturada, medidas e render do projeto de marcenaria." },
     ],
   }),
