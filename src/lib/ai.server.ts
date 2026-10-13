@@ -213,7 +213,9 @@ export async function runRender(image: File, prompt: string): Promise<Uint8Array
     parser.feed(value);
   }
   if (err) throw new AiError(502, err);
-  if (!sawEvent) {
+  // Some gateways emit partial-image events but omit the final completion event.
+  // In that case, retry once without streaming instead of failing despite a valid response.
+  if (!final) {
     const replay = await send(false);
     if (!replay.ok) throw new AiError(replay.status, friendlyStatus(replay.status, await replay.text().catch(() => "")));
     const j = (await replay.json()) as { data?: { b64_json?: string }[] };
