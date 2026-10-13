@@ -70,7 +70,10 @@ export const analyzeProject = createServerFn({ method: "POST" })
         describeCabinet("Armários inferiores", lower),
       ].filter(Boolean).join("\n");
       const analysis = await runAnalysis(text, bytesToDataUrl(bytes, mime));
-      await supabase.from("projects").update({ analysis, analysis_status: "done", analysis_error: null }).eq("id", data.id);
+      const { error: saveAnalysisError } = await supabase.from("projects")
+        .update({ analysis, analysis_status: "done", analysis_error: null })
+        .eq("id", data.id);
+      if (saveAnalysisError) throw new Error(`A análise foi concluída, mas não foi possível salvá-la no projeto: ${saveAnalysisError.message}`);
       return { ok: true as const };
     } catch (e) {
       const msg = e instanceof AiError || e instanceof Error ? e.message : "Erro desconhecido";
@@ -112,7 +115,14 @@ export const renderProject = createServerFn({ method: "POST" })
       const path = `${userId}/${data.id}/render-${Date.now()}.png`;
       const { error: upErr } = await supabase.storage.from("ambientes").upload(path, out, { contentType: "image/png", upsert: false });
       if (upErr) throw new Error(`Falha ao salvar o render: ${upErr.message}`);
-      await supabase.from("projects").update({ render_path: path, render_status: "done", render_error: null, render_model: RENDER_MODEL }).eq("id", data.id);
+      const { error: saveRenderError } = await supabase.from("projects")
+        .update({ render_path: path, render_status: "done", render_error: null, render_model: RENDER_MODEL })
+        .eq("id", data.id);
+      if (saveRenderError) {
+        // Do not report success if the image exists in Storage but the project cannot reference it.
+        await supabase.storage.from("ambientes").remove([path]).catch(() => undefined);
+        throw new Error(`O render foi gerado, mas não foi possível vinculá-lo ao projeto: ${saveRenderError.message}`);
+      }
       return { ok: true as const };
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Erro desconhecido";
