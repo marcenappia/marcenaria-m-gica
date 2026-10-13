@@ -19,8 +19,10 @@ function getProviderConfig(): AiProviderConfig {
     };
   }
 
-  if (process.env["AI_PROVIDER"]?.toLowerCase() === "vercel") {
-    throw new AiError(500, "AI_PROVIDER=vercel, mas AI_GATEWAY_API_KEY e VERCEL_OIDC_TOKEN não estão disponíveis no servidor.");
+  const vercelRuntime = process.env["VERCEL"] === "1";
+  const explicitlyVercel = process.env["AI_PROVIDER"]?.toLowerCase() === "vercel";
+  if (vercelRuntime || explicitlyVercel) {
+    throw new AiError(500, "A publicação está configurada para usar o AI Gateway da Vercel, mas não há AI_GATEWAY_API_KEY nem VERCEL_OIDC_TOKEN disponíveis no servidor.");
   }
 
   const key = process.env["LOVABLE_API_KEY"];
