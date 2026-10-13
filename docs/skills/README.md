@@ -4,7 +4,8 @@ As skills são regras de domínio locais e versionadas em `src/lib/design-skills
 
 ## Skills ativas no fluxo
 
-- **Design de interiores:** entra no prompt da renderização principal para harmonizar paleta, materiais, eletros, iluminação e decoração sem competir com a marcenaria.
+- **Design de interiores:** harmoniza paleta, materiais, eletros, iluminação e decoração sem competir com a marcenaria.
+- **Estúdio digital rápido (Digital Promob):** trabalha diretamente na foto real, preserva arquitetura e ordem dos módulos, não exige cena 3D e prioriza uma primeira proposta revisável em linguagem natural.
 - **Marcenaria técnica:** reforça medidas informadas, módulos, acessos, ventilação e incertezas técnicas.
 - **Renderização e edição:** orienta a edição da foto original e as alterações localizadas do render aprovado.
 - **Guia de decoração sem IA:** regras determinísticas usam ambiente, estilo e materiais já salvos para sugerir categorias e termos de pesquisa. Não faz chamada de IA, não gera imagem e não afirma marcas, preços ou disponibilidade.
