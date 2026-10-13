@@ -9,7 +9,9 @@ const LEGACY_ANALYSIS_MODEL = "openai/gpt-6-astra";
 type AiProviderConfig = { baseUrl: string; key: string; isVercel: boolean };
 
 function getProviderConfig(): AiProviderConfig {
-  const gatewayKey = process.env["AI_GATEWAY_API_KEY"];
+  const gatewayKey =
+    process.env["AI_GATEWAY_API_KEY"] ||
+    process.env["VERCEL_AI_GATEWAY_API_KEY"];
   const oidcToken = process.env["VERCEL_OIDC_TOKEN"];
   if (gatewayKey || oidcToken) {
     return {
@@ -22,7 +24,7 @@ function getProviderConfig(): AiProviderConfig {
   const vercelRuntime = process.env["VERCEL"] === "1";
   const explicitlyVercel = process.env["AI_PROVIDER"]?.toLowerCase() === "vercel";
   if (vercelRuntime || explicitlyVercel) {
-    throw new AiError(500, "A publicação está configurada para usar o AI Gateway da Vercel, mas não há AI_GATEWAY_API_KEY nem VERCEL_OIDC_TOKEN disponíveis no servidor.");
+    throw new AiError(500, "A publicação está configurada para usar o AI Gateway da Vercel, mas não há AI_GATEWAY_API_KEY, VERCEL_AI_GATEWAY_API_KEY nem VERCEL_OIDC_TOKEN disponíveis no servidor.");
   }
 
   const key = process.env["LOVABLE_API_KEY"];
@@ -47,7 +49,7 @@ export function friendlyStatus(status: number, raw: string): string {
   msg = String(msg).slice(0, 300);
   switch (status) {
     case 401:
-      return "Credencial de IA inválida ou ausente no servidor (LOVABLE_API_KEY).";
+      return "Credencial de IA inválida ou ausente no servidor. Confira a variável do provedor configurado.";
     case 402:
       return `Créditos de IA insuficientes no workspace. ${msg}`;
     case 403:
@@ -209,7 +211,22 @@ export async function runRender(image: File, prompt: string): Promise<Uint8Array
   };
 
   if (provider.isVercel) {
-    const response = await send(false);
+    // Vercel AI Gateway /v1/images/edits accepts JSON with an images array,
+    // not the OpenAI multipart/form-data shape used by the legacy Lovable gateway.
+    const inputBytes = new Uint8Array(await image.arrayBuffer());
+    const inputDataUrl = bytesToDataUrl(inputBytes, image.type || "image/jpeg");
+    const response = await fetch(`${provider.baseUrl}/v1/images/edits`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${provider.key}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: RENDER_MODEL,
+        prompt,
+        images: [{ image_url: inputDataUrl }],
+      }),
+    });
     if (!response.ok) throw new AiError(response.status, friendlyStatus(response.status, await response.text().catch(() => "")));
     const payload = (await response.json()) as { data?: { b64_json?: string }[] };
     const final = payload.data?.[0]?.b64_json;
