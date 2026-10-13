@@ -173,7 +173,7 @@ export const editRender = createServerFn({ method: "POST" })
         "STRICT PRESERVATION: keep the same camera angle, perspective, room geometry, architecture, walls, doors, windows, floor, ceiling, lighting, shadows, composition, and every furniture/detail not explicitly mentioned by the user.",
         "Change only what the user explicitly requests. Keep the existing proportions and layout. Do not add text, dimensions, labels, watermarks, or unrelated objects.",
         `User's requested edit: ${data.instruction}`,
-      ].join("\\n").slice(0, 3800);
+      ].join("\n").slice(0, 3800);
       const output = await runRender(file, prompt);
       const nextPath = `${userId}/${data.id}/edit-${Date.now()}.png`;
       const { error: uploadError } = await supabase.storage.from("ambientes").upload(nextPath, output, {
@@ -197,7 +197,11 @@ export const editRender = createServerFn({ method: "POST" })
           analysis: { ...priorAnalysis, render_history: nextHistory },
         })
         .eq("id", data.id);
-      if (updateError) throw new Error(`A imagem foi gerada, mas não foi possível atualizar o projeto: ${updateError.message}`);
+      if (updateError) {
+        // Avoid orphaned files if the database cannot point to the new version.
+        await supabase.storage.from("ambientes").remove([nextPath]).catch(() => undefined);
+        throw new Error(`A imagem foi gerada, mas não foi possível atualizar o projeto: ${updateError.message}`);
+      }
       return { ok: true as const };
     } catch (e) {
       return { ok: false as const, error: e instanceof Error ? e.message : "Falha ao editar o render." };
