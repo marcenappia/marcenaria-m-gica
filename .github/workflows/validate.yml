@@ -29,6 +29,6 @@ jobs:
       - name: Run unit tests
         run: npm test
       - name: Run lint (exclude existing formatting backlog)
-        run: npm run lint -- --rule 'prettier/prettier: off'
+        run: "npm run lint -- --rule 'prettier/prettier: off'"
       - name: Build production bundle
         run: npm run build
