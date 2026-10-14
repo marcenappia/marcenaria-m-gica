@@ -7,6 +7,14 @@ export const RENDER_MODEL = "openai/gpt-image-2.5-sunburst";
 const LEGACY_ANALYSIS_MODEL = "openai/gpt-6-astra";
 
 type AiProviderConfig = { baseUrl: string; key: string; isVercel: boolean };
+type GatewayEventPayload = {
+  type?: string;
+  delta?: string;
+  response?: { error?: { message?: string } };
+  error?: { message?: string };
+  message?: string;
+  b64_json?: string;
+};
 
 function getProviderConfig(): AiProviderConfig {
   const gatewayKey =
@@ -159,9 +167,9 @@ export async function runAnalysis(userText: string, imageDataUrl: string) {
   let refused = false;
   const parser = createParser({
     onEvent(ev) {
-      let p: any;
+      let p: GatewayEventPayload;
       try {
-        p = JSON.parse(ev.data);
+        p = JSON.parse(ev.data) as GatewayEventPayload;
       } catch {
         return;
       }
