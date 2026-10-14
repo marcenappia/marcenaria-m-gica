@@ -41,5 +41,5 @@ export async function exportPdf(p: Project, rows: DimensionRow[], originalUrl?: 
     line("Pendências:", 11); for (const x of a.pendencias ?? []) line(`• ${x}`);
     line("Riscos:", 11); for (const x of a.riscos ?? []) line(`• ${x}`);
   }
-  doc.save(`${p.title.replace(/[^\w\-]+/g, "_")}.pdf`);
+  doc.save(`${p.title.replace(/[^\w-]+/g, "_")}.pdf`);
 }

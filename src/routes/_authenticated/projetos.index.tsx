@@ -9,9 +9,9 @@ import { AiDiagnostics } from "@/components/AiDiagnostics";
 export const Route = createFileRoute("/_authenticated/projetos/")({
   head: () => ({
     meta: [
-      { title: "Biblioteca de projetos — Oficina IA" },
+      { title: "Biblioteca de projetos — Marcenaria Mágica" },
       { name: "description", content: "Seus projetos de marcenaria com foto, análise e render." },
-      { property: "og:title", content: "Biblioteca de projetos — Oficina IA" },
+      { property: "og:title", content: "Biblioteca de projetos — Marcenaria Mágica" },
       { property: "og:description", content: "Seus projetos de marcenaria com foto, análise e render." },
     ],
   }),

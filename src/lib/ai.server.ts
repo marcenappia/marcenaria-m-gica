@@ -1,8 +1,44 @@
 import { createParser } from "eventsource-parser";
 
 export const GATEWAY = "https://ai.gateway.lovable.dev";
-export const ANALYSIS_MODEL = "openai/gpt-6-astra";
+export const VERCEL_AI_GATEWAY = "https://ai-gateway.vercel.sh";
+export const ANALYSIS_MODEL = "alibaba/qwen3.7-flash";
 export const RENDER_MODEL = "openai/gpt-image-2.5-sunburst";
+const LEGACY_ANALYSIS_MODEL = "openai/gpt-6-astra";
+
+type AiProviderConfig = { baseUrl: string; key: string; isVercel: boolean };
+type GatewayEventPayload = {
+  type?: string;
+  delta?: string;
+  response?: { error?: { message?: string } };
+  error?: { message?: string };
+  message?: string;
+  b64_json?: string;
+};
+
+function getProviderConfig(): AiProviderConfig {
+  const gatewayKey =
+    process.env["AI_GATEWAY_API_KEY"] ||
+    process.env["VERCEL_AI_GATEWAY_API_KEY"];
+  const oidcToken = process.env["VERCEL_OIDC_TOKEN"];
+  if (gatewayKey || oidcToken) {
+    return {
+      baseUrl: VERCEL_AI_GATEWAY,
+      key: gatewayKey || oidcToken!,
+      isVercel: true,
+    };
+  }
+
+  const vercelRuntime = process.env["VERCEL"] === "1";
+  const explicitlyVercel = process.env["AI_PROVIDER"]?.toLowerCase() === "vercel";
+  if (vercelRuntime || explicitlyVercel) {
+    throw new AiError(500, "A publicação está configurada para usar o AI Gateway da Vercel, mas não há AI_GATEWAY_API_KEY, VERCEL_AI_GATEWAY_API_KEY nem VERCEL_OIDC_TOKEN disponíveis no servidor.");
+  }
+
+  const key = process.env["LOVABLE_API_KEY"];
+  if (!key) throw new AiError(500, "Nenhuma credencial de IA está configurada no servidor.");
+  return { baseUrl: GATEWAY, key, isVercel: false };
+}
 
 export class AiError extends Error {
   constructor(public status: number, message: string) {
@@ -21,7 +57,7 @@ export function friendlyStatus(status: number, raw: string): string {
   msg = String(msg).slice(0, 300);
   switch (status) {
     case 401:
-      return "Credencial de IA inválida ou ausente no servidor (LOVABLE_API_KEY).";
+      return "Credencial de IA inválida ou ausente no servidor. Confira a variável do provedor configurado.";
     case 402:
       return `Créditos de IA insuficientes no workspace. ${msg}`;
     case 403:
@@ -34,9 +70,7 @@ export function friendlyStatus(status: number, raw: string): string {
 }
 
 export function getKey(): string {
-  const key = process.env["LOVABLE_API_KEY"];
-  if (!key) throw new AiError(500, "LOVABLE_API_KEY não configurada no servidor. A IA não pode ser executada.");
-  return key;
+  return getProviderConfig().key;
 }
 
 export const ANALYSIS_SCHEMA = {
@@ -99,16 +133,17 @@ Responda em português brasileiro (exceto prompt_render).`;
 
 /** Chama /v1/responses em streaming e devolve o JSON final. */
 export async function runAnalysis(userText: string, imageDataUrl: string) {
-  const key = getKey();
-  const res = await fetch(`${GATEWAY}/v1/responses`, {
+  const provider = getProviderConfig();
+  const headers: Record<string, string> = {
+    Authorization: `Bearer ${provider.key}`,
+    "Content-Type": "application/json",
+  };
+  if (!provider.isVercel) headers["X-Lovable-AIG-SDK"] = "fetch";
+  const res = await fetch(`${provider.baseUrl}/v1/responses`, {
     method: "POST",
-    headers: {
-      Authorization: `Bearer ${key}`,
-      "Content-Type": "application/json",
-      "X-Lovable-AIG-SDK": "fetch",
-    },
+    headers,
     body: JSON.stringify({
-      model: ANALYSIS_MODEL,
+      model: provider.isVercel ? ANALYSIS_MODEL : LEGACY_ANALYSIS_MODEL,
       stream: true,
       store: false,
       reasoning: { effort: "low" },
@@ -132,9 +167,9 @@ export async function runAnalysis(userText: string, imageDataUrl: string) {
   let refused = false;
   const parser = createParser({
     onEvent(ev) {
-      let p: any;
+      let p: GatewayEventPayload;
       try {
-        p = JSON.parse(ev.data);
+        p = JSON.parse(ev.data) as GatewayEventPayload;
       } catch {
         return;
       }
@@ -163,22 +198,53 @@ export async function runAnalysis(userText: string, imageDataUrl: string) {
 
 /** Edita a foto real via /v1/images/edits (streaming) e devolve PNG em bytes. */
 export async function runRender(image: File, prompt: string): Promise<Uint8Array> {
-  const key = getKey();
+  const provider = getProviderConfig();
   const send = (stream: boolean) => {
     const form = new FormData();
     form.set("model", RENDER_MODEL);
     form.set("prompt", prompt);
     form.append("image", image);
+    if (provider.isVercel) form.set("response_format", "b64_json");
     if (stream) {
       form.set("stream", "true");
       form.set("partial_images", "1");
     }
-    return fetch(`${GATEWAY}/v1/images/edits`, {
+    const headers: Record<string, string> = { Authorization: `Bearer ${provider.key}` };
+    if (!provider.isVercel) headers["X-Lovable-AIG-SDK"] = "fetch";
+    return fetch(`${provider.baseUrl}/v1/images/edits`, {
       method: "POST",
-      headers: { Authorization: `Bearer ${key}`, "X-Lovable-AIG-SDK": "fetch" },
+      headers,
       body: form,
     });
   };
+
+  if (provider.isVercel) {
+    // Vercel AI Gateway /v1/images/edits accepts JSON with an images array,
+    // not the OpenAI multipart/form-data shape used by the legacy Lovable gateway.
+    const inputBytes = new Uint8Array(await image.arrayBuffer());
+    const inputDataUrl = bytesToDataUrl(inputBytes, image.type || "image/jpeg");
+    const response = await fetch(`${provider.baseUrl}/v1/images/edits`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${provider.key}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: RENDER_MODEL,
+        prompt,
+        images: [{ image_url: inputDataUrl }],
+      }),
+    });
+    if (!response.ok) throw new AiError(response.status, friendlyStatus(response.status, await response.text().catch(() => "")));
+    const payload = (await response.json()) as { data?: { b64_json?: string }[] };
+    const final = payload.data?.[0]?.b64_json;
+    if (!final) throw new AiError(502, "O AI Gateway da Vercel não devolveu a imagem em base64.");
+    const bin = atob(final);
+    const out = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+    return out;
+  }
+
   const res = await send(true);
   if (!res.ok || !res.body) throw new AiError(res.status, friendlyStatus(res.status, await res.text().catch(() => "")));
 
@@ -187,9 +253,9 @@ export async function runRender(image: File, prompt: string): Promise<Uint8Array
   let err: string | null = null;
   const parser = createParser({
     onEvent(ev) {
-      let p: any;
+      let p: GatewayEventPayload;
       try {
-        p = JSON.parse(ev.data);
+        p = JSON.parse(ev.data) as GatewayEventPayload;
       } catch {
         return;
       }
@@ -213,7 +279,9 @@ export async function runRender(image: File, prompt: string): Promise<Uint8Array
     parser.feed(value);
   }
   if (err) throw new AiError(502, err);
-  if (!sawEvent) {
+  // Some gateways emit partial-image events but omit the final completion event.
+  // In that case, retry once without streaming instead of failing despite a valid response.
+  if (!final) {
     const replay = await send(false);
     if (!replay.ok) throw new AiError(replay.status, friendlyStatus(replay.status, await replay.text().catch(() => "")));
     const j = (await replay.json()) as { data?: { b64_json?: string }[] };

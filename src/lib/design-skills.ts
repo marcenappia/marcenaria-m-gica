@@ -31,6 +31,22 @@ RENDER AND EDIT SKILL:
 - Save every successful result as a new version; never overwrite the original photo.
 - Generative image editing cannot guarantee pixel-perfect preservation; the user must review the result.
 `.trim();
+/**
+ * Skill de atendimento rápido: funciona como um projetista digital em reunião com o cliente.
+ * Não exige construir uma cena 3D nem inventa dimensões para preencher lacunas.
+ */
+export const DIGITAL_PROMOB_SKILL = `
+DIGITAL PROMOB / RAPID CONCEPT SKILL:
+- Work directly on the supplied real-room photo. Do not create a new room, rebuild walls, or switch to an unrelated 3D scene.
+- Treat the client's natural-language request as the design brief. Resolve straightforward choices using the stated style and materials; do not block the first concept by demanding every measurement.
+- Preserve the exact left-to-right order, module count, door and drawer arrangement, appliance locations, and explicitly named materials/finishes.
+- Make only the requested cabinetry/design changes. Do not move architecture, plumbing, electrical points, stone countertops, appliances, or existing furniture unless requested.
+- If dimensions are supplied, treat them as constraints. If missing, keep the visual proposal plausible and mark dimensions for confirmation outside the render; never draw dimension labels or claim exact scale from a photo.
+- Prioritize a clean, client-presentable first concept that can be revised quickly with follow-up instructions.
+- Do not add labels, captions, measurement arrows, logos, watermarks, or unrelated decorative items.
+- Before returning the image, mentally check the brief item by item: layout, module count, materials, colors, appliances, and elements that must remain unchanged.
+`.trim();
+
 
 export type DecorationSuggestion = {
   category: string;

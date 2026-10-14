@@ -16,7 +16,7 @@ jobs:
     env:
       # Build-time placeholders only; never used for deployment or real API access.
       VITE_SUPABASE_URL: https://example.supabase.co
-      VITE_SUPABASE_ANON_KEY: ci-placeholder-anon-key
+      VITE_SUPABASE_PUBLISHABLE_KEY: ci-placeholder-publishable-key
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -28,5 +28,7 @@ jobs:
         run: npm install --legacy-peer-deps --no-package-lock --no-audit --no-fund --fetch-retries=5 --fetch-retry-mintimeout=20000 --fetch-retry-maxtimeout=120000 --maxsockets=3
       - name: Run unit tests
         run: npm test
+      - name: Run lint (exclude existing formatting backlog)
+        run: "npm run lint -- --rule 'prettier/prettier: off'"
       - name: Build production bundle
         run: npm run build

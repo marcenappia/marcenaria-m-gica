@@ -19,9 +19,13 @@ export type Project = {
   title: string;
   description: string;
   style: string;
+  // Supabase JSON payloads are dynamically shaped by the saved project.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   upper_cabinets: any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   lower_cabinets: any;
   original_path: string | null;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   analysis: any;
   analysis_status: string;
   analysis_error: string | null;

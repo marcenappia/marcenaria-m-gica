@@ -1,8 +1,10 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "@/integrations/supabase/types";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { FIELDS, sanitizeCabinet, sniffImageType, type CabinetInput } from "./cabinets";
-import { buildDecorationGuide, INTERIOR_DESIGN_RENDER_SKILL, RENDER_EDIT_PRESERVATION_SKILL, TECHNICAL_CABINETRY_SKILL } from "./design-skills";
+import { buildDecorationGuide, DIGITAL_PROMOB_SKILL, INTERIOR_DESIGN_RENDER_SKILL, RENDER_EDIT_PRESERVATION_SKILL, TECHNICAL_CABINETRY_SKILL } from "./design-skills";
 
 const idSchema = z.object({ id: z.string().uuid() });
 
@@ -14,7 +16,7 @@ function describeCabinet(name: string, c: CabinetInput) {
   return `${name} — ${parts.join("; ")}${c.observacoes ? `; Obs.: ${c.observacoes}` : ""}`;
 }
 
-async function loadProjectAndImage(supabase: any, id: string) {
+async function loadProjectAndImage(supabase: SupabaseClient<Database>, id: string) {
   const { data: p, error } = await supabase.from("projects").select("*").eq("id", id).single();
   if (error || !p) throw new Error("Projeto não encontrado.");
   if (!p.original_path) throw new Error("Projeto sem foto original.");
@@ -30,12 +32,19 @@ export const aiDiagnostics = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async () => {
     const { ANALYSIS_MODEL, RENDER_MODEL, GATEWAY } = await import("./ai.server");
-    const key = process.env["LOVABLE_API_KEY"];
+    const vercelKey =
+      process.env["AI_GATEWAY_API_KEY"] ||
+      process.env["VERCEL_AI_GATEWAY_API_KEY"] ||
+      process.env["VERCEL_OIDC_TOKEN"];
+    const vercelExpected = Boolean(vercelKey) || process.env["VERCEL"] === "1" || process.env["AI_PROVIDER"]?.toLowerCase() === "vercel";
+    const key = vercelKey || (vercelExpected ? undefined : process.env["LOVABLE_API_KEY"]);
+    const baseUrl = vercelExpected ? "https://ai-gateway.vercel.sh" : GATEWAY;
     if (!key) {
-      return { keyPresent: false, reachable: false, analysisModel: ANALYSIS_MODEL, renderModel: RENDER_MODEL, analysisAvailable: false, renderAvailable: false, error: "LOVABLE_API_KEY ausente no servidor." };
+      const provider = vercelExpected ? "AI_GATEWAY_API_KEY, VERCEL_AI_GATEWAY_API_KEY ou VERCEL_OIDC_TOKEN" : "LOVABLE_API_KEY";
+      return { keyPresent: false, reachable: false, analysisModel: ANALYSIS_MODEL, renderModel: RENDER_MODEL, analysisAvailable: false, renderAvailable: false, error: `${provider} ausente no servidor.` };
     }
     try {
-      const r = await fetch(`${GATEWAY}/v1/models`, { headers: { Authorization: `Bearer ${key}` } });
+      const r = await fetch(`${baseUrl}/v1/models`, { headers: { Authorization: `Bearer ${key}` } });
       if (!r.ok) {
         return { keyPresent: true, reachable: false, analysisModel: ANALYSIS_MODEL, renderModel: RENDER_MODEL, analysisAvailable: false, renderAvailable: false, error: `Gateway respondeu ${r.status}.` };
       }
@@ -53,7 +62,8 @@ export const analyzeProject = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { supabase } = context;
     const { runAnalysis, bytesToDataUrl, AiError } = await import("./ai.server");
-    await supabase.from("projects").update({ analysis_status: "running", analysis_error: null }).eq("id", data.id);
+    const { error: startAnalysisError } = await supabase.from("projects").update({ analysis_status: "running", analysis_error: null }).eq("id", data.id);
+    if (startAnalysisError) return { ok: false as const, error: `Não foi possível iniciar a análise no projeto: ${startAnalysisError.message}` };
     try {
       const { p, bytes, mime } = await loadProjectAndImage(supabase, data.id);
       const upper = sanitizeCabinet(p.upper_cabinets);
@@ -66,7 +76,10 @@ export const analyzeProject = createServerFn({ method: "POST" })
         describeCabinet("Armários inferiores", lower),
       ].filter(Boolean).join("\n");
       const analysis = await runAnalysis(text, bytesToDataUrl(bytes, mime));
-      await supabase.from("projects").update({ analysis, analysis_status: "done", analysis_error: null }).eq("id", data.id);
+      const { error: saveAnalysisError } = await supabase.from("projects")
+        .update({ analysis, analysis_status: "done", analysis_error: null })
+        .eq("id", data.id);
+      if (saveAnalysisError) throw new Error(`A análise foi concluída, mas não foi possível salvá-la no projeto: ${saveAnalysisError.message}`);
       return { ok: true as const };
     } catch (e) {
       const msg = e instanceof AiError || e instanceof Error ? e.message : "Erro desconhecido";
@@ -81,7 +94,8 @@ export const renderProject = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
     const { runRender, RENDER_MODEL } = await import("./ai.server");
-    await supabase.from("projects").update({ render_status: "running", render_error: null }).eq("id", data.id);
+    const { error: startRenderError } = await supabase.from("projects").update({ render_status: "running", render_error: null }).eq("id", data.id);
+    if (startRenderError) return { ok: false as const, error: `Não foi possível iniciar a renderização no projeto: ${startRenderError.message}` };
     try {
       const { p, bytes, mime } = await loadProjectAndImage(supabase, data.id);
       if (p.analysis_status !== "done" || !p.analysis) throw new Error("Rode a análise antes de gerar o render.");
@@ -94,6 +108,7 @@ export const renderProject = createServerFn({ method: "POST" })
         INTERIOR_DESIGN_RENDER_SKILL,
         TECHNICAL_CABINETRY_SKILL,
         RENDER_EDIT_PRESERVATION_SKILL,
+        DIGITAL_PROMOB_SKILL,
         a.prompt_render ?? "",
         `Client request (Portuguese): ${p.description}`,
         p.style ? `Style/finish: ${p.style}` : "",
@@ -108,7 +123,14 @@ export const renderProject = createServerFn({ method: "POST" })
       const path = `${userId}/${data.id}/render-${Date.now()}.png`;
       const { error: upErr } = await supabase.storage.from("ambientes").upload(path, out, { contentType: "image/png", upsert: false });
       if (upErr) throw new Error(`Falha ao salvar o render: ${upErr.message}`);
-      await supabase.from("projects").update({ render_path: path, render_status: "done", render_error: null, render_model: RENDER_MODEL }).eq("id", data.id);
+      const { error: saveRenderError } = await supabase.from("projects")
+        .update({ render_path: path, render_status: "done", render_error: null, render_model: RENDER_MODEL })
+        .eq("id", data.id);
+      if (saveRenderError) {
+        // Do not report success if the image exists in Storage but the project cannot reference it.
+        await supabase.storage.from("ambientes").remove([path]).catch(() => undefined);
+        throw new Error(`O render foi gerado, mas não foi possível vinculá-lo ao projeto: ${saveRenderError.message}`);
+      }
       return { ok: true as const };
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Erro desconhecido";
@@ -150,11 +172,12 @@ export const editRender = createServerFn({ method: "POST" })
       const prompt = [
         "Make a localized edit to THIS existing interior-design render, not a new unrelated design.",
         RENDER_EDIT_PRESERVATION_SKILL,
+        DIGITAL_PROMOB_SKILL,
         TECHNICAL_CABINETRY_SKILL,
         "STRICT PRESERVATION: keep the same camera angle, perspective, room geometry, architecture, walls, doors, windows, floor, ceiling, lighting, shadows, composition, and every furniture/detail not explicitly mentioned by the user.",
         "Change only what the user explicitly requests. Keep the existing proportions and layout. Do not add text, dimensions, labels, watermarks, or unrelated objects.",
         `User's requested edit: ${data.instruction}`,
-      ].join("\\n").slice(0, 3800);
+      ].join("\n").slice(0, 3800);
       const output = await runRender(file, prompt);
       const nextPath = `${userId}/${data.id}/edit-${Date.now()}.png`;
       const { error: uploadError } = await supabase.storage.from("ambientes").upload(nextPath, output, {
@@ -178,7 +201,11 @@ export const editRender = createServerFn({ method: "POST" })
           analysis: { ...priorAnalysis, render_history: nextHistory },
         })
         .eq("id", data.id);
-      if (updateError) throw new Error(`A imagem foi gerada, mas não foi possível atualizar o projeto: ${updateError.message}`);
+      if (updateError) {
+        // Avoid orphaned files if the database cannot point to the new version.
+        await supabase.storage.from("ambientes").remove([nextPath]).catch(() => undefined);
+        throw new Error(`A imagem foi gerada, mas não foi possível atualizar o projeto: ${updateError.message}`);
+      }
       return { ok: true as const };
     } catch (e) {
       return { ok: false as const, error: e instanceof Error ? e.message : "Falha ao editar o render." };
