@@ -1,5 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "@/integrations/supabase/types";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { FIELDS, sanitizeCabinet, sniffImageType, type CabinetInput } from "./cabinets";
 import { buildDecorationGuide, DIGITAL_PROMOB_SKILL, INTERIOR_DESIGN_RENDER_SKILL, RENDER_EDIT_PRESERVATION_SKILL, TECHNICAL_CABINETRY_SKILL } from "./design-skills";
@@ -14,7 +16,7 @@ function describeCabinet(name: string, c: CabinetInput) {
   return `${name} — ${parts.join("; ")}${c.observacoes ? `; Obs.: ${c.observacoes}` : ""}`;
 }
 
-async function loadProjectAndImage(supabase: any, id: string) {
+async function loadProjectAndImage(supabase: SupabaseClient<Database>, id: string) {
   const { data: p, error } = await supabase.from("projects").select("*").eq("id", id).single();
   if (error || !p) throw new Error("Projeto não encontrado.");
   if (!p.original_path) throw new Error("Projeto sem foto original.");
