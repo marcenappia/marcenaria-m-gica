@@ -26,7 +26,7 @@ type Stage = "idle" | "saving" | "analyzing" | "rendering";
 
 function toCabinet(raw: Raw): CabinetInput {
   const c: CabinetInput = { observacoes: (raw["observacoes"] ?? "").slice(0, 500) };
-  for (const f of FIELDS) (c as any)[f.key] = parseMeasure(raw[f.key] ?? "", f.max);
+  for (const f of FIELDS) Object.assign(c, { [f.key]: parseMeasure(raw[f.key] ?? "", f.max) });
   return c;
 }
 
@@ -103,7 +103,7 @@ function Novo() {
       const { data: proj, error } = await supabase.from("projects").insert({
         title: title.trim() || `Projeto ${new Date().toLocaleDateString("pt-BR")}`,
         description: projectDescription, style,
-        upper_cabinets: toCabinet(upper) as any, lower_cabinets: toCabinet(lower) as any, user_id: user.id,
+        upper_cabinets: toCabinet(upper), lower_cabinets: toCabinet(lower), user_id: user.id,
       }).select("id").single();
       if (error) throw error;
       projectId = proj.id;
