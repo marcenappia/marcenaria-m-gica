@@ -253,9 +253,9 @@ export async function runRender(image: File, prompt: string): Promise<Uint8Array
   let err: string | null = null;
   const parser = createParser({
     onEvent(ev) {
-      let p: any;
+      let p: GatewayEventPayload;
       try {
-        p = JSON.parse(ev.data);
+        p = JSON.parse(ev.data) as GatewayEventPayload;
       } catch {
         return;
       }
