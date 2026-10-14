@@ -60,7 +60,8 @@ export const analyzeProject = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { supabase } = context;
     const { runAnalysis, bytesToDataUrl, AiError } = await import("./ai.server");
-    await supabase.from("projects").update({ analysis_status: "running", analysis_error: null }).eq("id", data.id);
+    const { error: startAnalysisError } = await supabase.from("projects").update({ analysis_status: "running", analysis_error: null }).eq("id", data.id);
+    if (startAnalysisError) return { ok: false as const, error: `Não foi possível iniciar a análise no projeto: ${startAnalysisError.message}` };
     try {
       const { p, bytes, mime } = await loadProjectAndImage(supabase, data.id);
       const upper = sanitizeCabinet(p.upper_cabinets);
@@ -91,7 +92,8 @@ export const renderProject = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
     const { runRender, RENDER_MODEL } = await import("./ai.server");
-    await supabase.from("projects").update({ render_status: "running", render_error: null }).eq("id", data.id);
+    const { error: startRenderError } = await supabase.from("projects").update({ render_status: "running", render_error: null }).eq("id", data.id);
+    if (startRenderError) return { ok: false as const, error: `Não foi possível iniciar a renderização no projeto: ${startRenderError.message}` };
     try {
       const { p, bytes, mime } = await loadProjectAndImage(supabase, data.id);
       if (p.analysis_status !== "done" || !p.analysis) throw new Error("Rode a análise antes de gerar o render.");
