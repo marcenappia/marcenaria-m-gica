@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as EntrarRouteImport } from './routes/entrar'
+import { Route as ApiMarcenariaRenderRouteImport } from './routes/api/marcenaria-render'
 import { Route as AuthenticatedProjetosIndexRouteImport } from './routes/_authenticated/projetos.index'
 import { Route as AuthenticatedProjetosIdRouteImport } from './routes/_authenticated/projetos.$id'
 import { Route as AuthenticatedProjetosNovoRouteImport } from './routes/_authenticated/projetos.novo'
@@ -28,6 +29,11 @@ const AuthenticatedRoute = AuthenticatedRouteImport.update({
 const EntrarRoute = EntrarRouteImport.update({
   id: '/entrar',
   path: '/entrar',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiMarcenariaRenderRoute = ApiMarcenariaRenderRouteImport.update({
+  id: '/api/marcenaria-render',
+  path: '/api/marcenaria-render',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthenticatedProjetosIndexRoute =
@@ -51,6 +57,7 @@ const AuthenticatedProjetosNovoRoute =
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/entrar': typeof EntrarRoute
+  '/api/marcenaria-render': typeof ApiMarcenariaRenderRoute
   '/projetos/$id': typeof AuthenticatedProjetosIdRoute
   '/projetos/novo': typeof AuthenticatedProjetosNovoRoute
   '/projetos/': typeof AuthenticatedProjetosIndexRoute
@@ -58,6 +65,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/entrar': typeof EntrarRoute
+  '/api/marcenaria-render': typeof ApiMarcenariaRenderRoute
   '/projetos/$id': typeof AuthenticatedProjetosIdRoute
   '/projetos/novo': typeof AuthenticatedProjetosNovoRoute
   '/projetos': typeof AuthenticatedProjetosIndexRoute
@@ -67,20 +75,34 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteWithChildren
   '/entrar': typeof EntrarRoute
+  '/api/marcenaria-render': typeof ApiMarcenariaRenderRoute
   '/_authenticated/projetos/$id': typeof AuthenticatedProjetosIdRoute
   '/_authenticated/projetos/novo': typeof AuthenticatedProjetosNovoRoute
   '/_authenticated/projetos/': typeof AuthenticatedProjetosIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/entrar' | '/projetos/$id' | '/projetos/novo' | '/projetos/'
+  fullPaths:
+    | '/'
+    | '/entrar'
+    | '/api/marcenaria-render'
+    | '/projetos/$id'
+    | '/projetos/novo'
+    | '/projetos/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/entrar' | '/projetos/$id' | '/projetos/novo' | '/projetos'
+  to:
+    | '/'
+    | '/entrar'
+    | '/api/marcenaria-render'
+    | '/projetos/$id'
+    | '/projetos/novo'
+    | '/projetos'
   id:
     | '__root__'
     | '/'
     | '/_authenticated'
     | '/entrar'
+    | '/api/marcenaria-render'
     | '/_authenticated/projetos/$id'
     | '/_authenticated/projetos/novo'
     | '/_authenticated/projetos/'
@@ -90,6 +112,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRoute: typeof AuthenticatedRouteWithChildren
   EntrarRoute: typeof EntrarRoute
+  ApiMarcenariaRenderRoute: typeof ApiMarcenariaRenderRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -113,6 +136,13 @@ declare module '@tanstack/react-router' {
       path: '/entrar'
       fullPath: '/entrar'
       preLoaderRoute: typeof EntrarRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/marcenaria-render': {
+      id: '/api/marcenaria-render'
+      path: '/api/marcenaria-render'
+      fullPath: '/api/marcenaria-render'
+      preLoaderRoute: typeof ApiMarcenariaRenderRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authenticated/projetos/': {
@@ -159,6 +189,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRoute: AuthenticatedRouteWithChildren,
   EntrarRoute: EntrarRoute,
+  ApiMarcenariaRenderRoute: ApiMarcenariaRenderRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
